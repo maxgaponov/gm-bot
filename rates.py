@@ -1,21 +1,22 @@
-import cachetools.func
-import requests
 import json
-import config
+import requests
+from cachetools.func import ttl_cache
+from config import BASE_CURRENCY, RATES_API_KEY, RATES_API_URL, CURRENCIES
+
 
 def convert_rates_to_base(rates):
 	result = {}
-	for cur in config.CURRENCIES:
-		result[cur] = rates[config.BASE_CURRENCY] / rates[cur]
+	for cur in CURRENCIES:
+		result[cur] = rates[BASE_CURRENCY] / rates[cur]
 	return result
 
 def make_api_request():
 	params = {
-		'app_id': config.RATES_API_KEY
+		'app_id': RATES_API_KEY
 	}
-	return requests.get(config.RATES_API_URL, params=params)
+	return requests.get(RATES_API_URL, params=params)
 
-@cachetools.func.ttl_cache(maxsize=1, ttl=10)
+@ttl_cache(maxsize=1, ttl=10)
 def get_rates():
 	response = make_api_request()
 	rates = json.loads(response.text)['rates']
