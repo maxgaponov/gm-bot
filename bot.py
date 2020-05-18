@@ -1,4 +1,6 @@
 import time
+import threading
+import schedule
 from enum import Enum
 from rates import get_rates
 from telebot import TeleBot
@@ -7,7 +9,7 @@ from config import RATES_CMD, STOP_LOSS_CMD, TAKE_PROFIT_CMD, \
                    TG_TOKEN, CURRENCIES
 
 bot = TeleBot(TG_TOKEN)
-users = {}
+users = dict()
 
 
 def get_rate_message(rates):
@@ -34,6 +36,7 @@ class UState(Enum):
 
 
 def cur_handler(user, text):
+    text = text.upper()
     if text in CURRENCIES:
         user.storage['cur'] = text
         user.set_state(UState.inp_val)
@@ -58,7 +61,7 @@ def dur_handler(user, text):
         user.set_state(UState.start)
         user.add_action()
     except ValueError:
-        user.set_state(UState.inp_val)
+        user.set_state(UState.inp_dur)
 
 
 trans = dict()
@@ -80,7 +83,7 @@ class User:
         self.handler = None
 
     def update_rates(self, rates):
-        if self.notification_time and self.notification_time >= time.time():
+        if self.notification_time and self.notification_time <= time.time():
             self.notification_time = None
             self.notify(get_rate_message(rates))
         for cur in CURRENCIES:
@@ -88,9 +91,11 @@ class User:
             lr = self.low_rate.get(cur, None)
             if lr and lr >= rate:
                 self.notify(get_stop_loss_message(rates, cur))
+                self.low_rate[cur] = None
             hr = self.high_rate.get(cur, None)
             if hr and hr <= rate:
                 self.notify(get_take_profit_message(rates, cur))
+                self.high_rate[cur] = None
 
     def notify(self, message):
         if message:
@@ -103,12 +108,6 @@ class User:
             self.state = UState.start
         else:
             self.state = state
-
-    def query(self, text):
-        if text[0] == '/':
-            self.command_query(text[1:])
-        else:
-            self.text_query(text)
 
     def command_query(self, command):
         self.storage['cmd'] = command
@@ -139,13 +138,38 @@ class User:
 
 
 def get_user(user_id):
-    return users.get(user_id, User(user_id))
+    if user_id not in users:
+        users[user_id] = User(user_id)
+    return users[user_id]
 
 
-@bot.message_handler(content_types=['text'], commands=[RATES_CMD, STOP_LOSS_CMD, TAKE_PROFIT_CMD])
+@bot.message_handler(commands=[RATES_CMD, STOP_LOSS_CMD, TAKE_PROFIT_CMD])
+def command_handler(message):
+    user = get_user(message.chat.id)
+    user.command_query(message.text[1:])
+
+
+@bot.message_handler(content_types=['text'])
 def message_handler(message):
     user = get_user(message.chat.id)
-    user.query(message.text)
+    user.text_query(message.text)
 
 
-bot.polling()
+def update_rates():
+    rates = get_rates()
+    for (user_id, user) in users.items():
+        user.update_rates(rates)
+
+
+def run_bot():
+    bot.polling()
+
+
+def run_schedule():
+    schedule.every(1).seconds.do(update_rates)
+    while True:
+        schedule.run_pending()
+
+
+threading.Thread(target=run_bot).start()
+threading.Thread(target=run_schedule).start()
