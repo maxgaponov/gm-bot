@@ -9,17 +9,21 @@ from config import RATES_CMD, STOP_LOSS_CMD, TAKE_PROFIT_CMD, \
 bot = TeleBot(TG_TOKEN)
 users = {}
 
+
 def get_rate_message(rates):
     message = '  '.join(['{} {:.2f}'.format(name, rate) for (name, rate) in rates.items()])
     return message
+
 
 def get_stop_loss_message(rates, cur):
     message = 'Stop loss {} {:.2f}'.format(cur, rates[cur])
     return message
 
+
 def get_take_profit_message(rates, cur):
     message = 'Take profit {} {:.2f}'.format(cur, rates[cur])
     return message
+
 
 class UState(Enum):
     start = 1
@@ -28,6 +32,7 @@ class UState(Enum):
     inp_dur = 4
     bad_cmd = 5
 
+
 def cur_handler(user, text):
     if text in CURRENCIES:
         user.storage['cur'] = text
@@ -35,14 +40,16 @@ def cur_handler(user, text):
     else:
         user.set_state(UState.inp_cur)
 
+
 def val_handler(user, text):
     try:
         val = float(text)
         user.storage['val'] = val
         user.set_state(UState.start)
         user.add_action()
-    except Exception:
+    except ValueError:
         user.set_state(UState.inp_val)
+
 
 def dur_handler(user, text):
     try:
@@ -50,10 +57,11 @@ def dur_handler(user, text):
         user.storage['dur'] = dur
         user.set_state(UState.start)
         user.add_action()
-    except Exception:
+    except ValueError:
         user.set_state(UState.inp_val)
 
-trans = {}
+
+trans = dict()
 trans[UState.start] = (None, None)
 trans[UState.bad_cmd] = (BAD_CMD_MSG, None)
 trans[UState.inp_cur] = (INP_CUR_MSG, cur_handler)
@@ -62,37 +70,39 @@ trans[UState.inp_val] = (INP_VAL_MSG, val_handler)
 
 
 class User:
-    def __init__(self, id):
-        self.id = id
+    def __init__(self, user_id):
+        self.id = user_id
         self.low_rate = {}
         self.high_rate = {}
-        self.notif_time = None
+        self.notification_time = None
         self.state = UState.start
         self.storage = {}
         self.handler = None
 
     def update_rates(self, rates):
-        if self.notif_time and self.notif_time >= time.time():
-            self.notif_time = None
-            self.notificate(get_rate_message(rates))
+        if self.notification_time and self.notification_time >= time.time():
+            self.notification_time = None
+            self.notify(get_rate_message(rates))
         for cur in CURRENCIES:
             rate = rates[cur]
             lr = self.low_rate.get(cur, None)
             if lr and lr >= rate:
-                self.notificate(get_stop_loss_message(rates, cur))
+                self.notify(get_stop_loss_message(rates, cur))
             hr = self.high_rate.get(cur, None)
             if hr and hr <= rate:
-                self.notificate(get_take_profit_message(rates, cur))
+                self.notify(get_take_profit_message(rates, cur))
 
-    def notificate(self, message):
+    def notify(self, message):
         if message:
             bot.send_message(self.id, message)
 
     def set_state(self, state):
-        (msg, self.handler) = trans[self.state]
-        self.notificate(msg)
+        (msg, self.handler) = trans[state]
+        self.notify(msg)
         if not self.handler:
             self.state = UState.start
+        else:
+            self.state = state
 
     def query(self, text):
         if text[0] == '/':
@@ -117,7 +127,7 @@ class User:
         cmd = self.storage['cmd']
         if cmd == RATES_CMD:
             dur = self.storage['dur']
-            self.notif_time = time.time() + dur
+            self.notification_time = time.time() + dur
         elif cmd == STOP_LOSS_CMD:
             val = self.storage['val']
             cur = self.storage['cur']
@@ -127,12 +137,15 @@ class User:
             cur = self.storage['cur']
             self.high_rate[cur] = val
 
-def get_user(id):
-    return users.get(id, User(id))
 
-@bot.message_handler(content_types=['text'], commands = [RATES_CMD, STOP_LOSS_CMD, TAKE_PROFIT_CMD])
+def get_user(user_id):
+    return users.get(user_id, User(user_id))
+
+
+@bot.message_handler(content_types=['text'], commands=[RATES_CMD, STOP_LOSS_CMD, TAKE_PROFIT_CMD])
 def message_handler(message):
     user = get_user(message.chat.id)
     user.query(message.text)
+
 
 bot.polling()

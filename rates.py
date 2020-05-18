@@ -10,11 +10,13 @@ def convert_rates_to_base(rates):
 		result[cur] = rates[BASE_CURRENCY] / rates[cur]
 	return result
 
+
 def make_api_request():
 	params = {
 		'app_id': RATES_API_KEY
 	}
 	return requests.get(RATES_API_URL, params=params)
+
 
 @ttl_cache(maxsize=1, ttl=10)
 def get_rates():
