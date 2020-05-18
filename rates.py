@@ -18,7 +18,7 @@ def make_api_request():
 	return requests.get(RATES_API_URL, params=params)
 
 
-@ttl_cache(maxsize=1, ttl=10)
+@ttl_cache(maxsize=1, ttl=60 * 60)
 def get_rates():
 	response = make_api_request()
 	rates = json.loads(response.text)['rates']
