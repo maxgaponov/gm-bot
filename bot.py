@@ -4,9 +4,9 @@ import schedule
 from enum import Enum
 from rates import get_rates
 from telebot import TeleBot
-from config import RATES_CMD, STOP_LOSS_CMD, TAKE_PROFIT_CMD, \
-                   BAD_CMD_MSG, INP_CUR_MSG, INP_DUR_MSG, INP_VAL_MSG, \
-                   TG_TOKEN, CURRENCIES
+from message import Message
+from command import Command
+from config import TG_TOKEN, CURRENCIES
 
 bot = TeleBot(TG_TOKEN)
 users = dict()
@@ -64,12 +64,13 @@ def dur_handler(user, text):
         user.set_state(UState.inp_dur)
 
 
-trans = dict()
-trans[UState.start] = (None, None)
-trans[UState.bad_cmd] = (BAD_CMD_MSG, None)
-trans[UState.inp_cur] = (INP_CUR_MSG, cur_handler)
-trans[UState.inp_dur] = (INP_DUR_MSG, dur_handler)
-trans[UState.inp_val] = (INP_VAL_MSG, val_handler)
+trans = {
+    UState.start: (None, None),
+    UState.bad_cmd: (Message.BAD_CMD, None),
+    UState.inp_cur: (Message.INP_CUR, cur_handler),
+    UState.inp_dur: (Message.INP_DUR, dur_handler),
+    UState.inp_val: (Message.INP_VAL, val_handler)
+}
 
 
 class User:
@@ -111,9 +112,9 @@ class User:
 
     def command_query(self, command):
         self.storage['cmd'] = command
-        if command == STOP_LOSS_CMD or command == TAKE_PROFIT_CMD:
+        if command == Command.STOP_LOSS or command == Command.TAKE_PROFIT:
             self.set_state(UState.inp_cur)
-        elif command == RATES_CMD:
+        elif command == Command.RATES:
             self.set_state(UState.inp_dur)
         else:
             self.set_state(UState.bad_cmd)
@@ -124,14 +125,14 @@ class User:
 
     def add_action(self):
         cmd = self.storage['cmd']
-        if cmd == RATES_CMD:
+        if cmd == Command.RATES:
             dur = self.storage['dur']
             self.notification_time = time.time() + dur
-        elif cmd == STOP_LOSS_CMD:
+        elif cmd == Command.STOP_LOSS:
             val = self.storage['val']
             cur = self.storage['cur']
             self.low_rate[cur] = val
-        elif cmd == TAKE_PROFIT_CMD:
+        elif cmd == Command.TAKE_PROFIT:
             val = self.storage['val']
             cur = self.storage['cur']
             self.high_rate[cur] = val
@@ -143,7 +144,7 @@ def get_user(user_id):
     return users[user_id]
 
 
-@bot.message_handler(commands=[RATES_CMD, STOP_LOSS_CMD, TAKE_PROFIT_CMD])
+@bot.message_handler(commands=[Command.RATES, Command.STOP_LOSS, Command.TAKE_PROFIT])
 def command_handler(message):
     user = get_user(message.chat.id)
     user.command_query(message.text[1:])
