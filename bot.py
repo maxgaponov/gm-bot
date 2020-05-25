@@ -3,7 +3,7 @@ import schedule
 from telebot import TeleBot
 from command import Command
 from config import TG_TOKEN
-from user import set_bot, get_user, update_rates
+from user import set_bot, get_user, update_rates, save_users
 
 bot = TeleBot(TG_TOKEN)
 set_bot(bot)
@@ -37,5 +37,14 @@ def run_schedule():
         schedule.run_pending()
 
 
+def run_controller():
+    while True:
+        cmd = input('Enter command: ')
+        if cmd == 'stop':
+            save_users()
+            exit(0)
+
+
 threading.Thread(target=run_bot).start()
 threading.Thread(target=run_schedule).start()
+threading.Thread(target=run_controller).start()

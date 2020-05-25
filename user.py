@@ -1,9 +1,10 @@
 import time
+import pickle
 from enum import Enum
 from message import Message
 from command import Command
 from rates import get_rates
-from config import CURRENCIES
+from config import CURRENCIES, USERS_FILE
 
 bot = None
 
@@ -127,7 +128,21 @@ class User:
             self.high_rate[cur] = val
 
 
-users = dict()
+def load_users():
+    try:
+        with open(USERS_FILE, 'rb') as f:
+            return pickle.load(f)
+    except IOError:
+        return dict()
+
+
+users = load_users()
+
+
+def save_users():
+    global users
+    with open(USERS_FILE, 'wb') as f:
+        pickle.dump(users, f)
 
 
 def get_user(user_id):
