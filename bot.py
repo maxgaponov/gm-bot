@@ -100,7 +100,7 @@ class User:
 
     def notify(self, message):
         if message:
-            bot.send_message(self.id, message)
+            bot.send_message(self.id, message, parse_mode='markdown')
 
     def set_state(self, state):
         (msg, self.handler) = trans[state]
@@ -142,6 +142,12 @@ def get_user(user_id):
     if user_id not in users:
         users[user_id] = User(user_id)
     return users[user_id]
+
+
+@bot.message_handler(commands=[Command.START, Command.HELP])
+def command_handler(message):
+    user = get_user(message.chat.id)
+    user.notify(Message.HELP)
 
 
 @bot.message_handler(commands=[Command.RATES, Command.STOP_LOSS, Command.TAKE_PROFIT])
