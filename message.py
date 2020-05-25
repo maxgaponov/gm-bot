@@ -25,3 +25,20 @@ USD
     EUR 78.02  USD 71.42
 ```
 """
+
+    @staticmethod
+    def get_rate_message(rates):
+        message = '  '.join(['{} {:.2f}'.format(name, rate) for (name, rate) in rates.items()])
+        return message
+
+
+    @staticmethod
+    def get_stop_loss_message(rates, cur):
+        message = 'Stop loss {} {:.2f}'.format(cur, rates[cur])
+        return message
+
+
+    @staticmethod
+    def get_take_profit_message(rates, cur):
+        message = 'Take profit {} {:.2f}'.format(cur, rates[cur])
+        return message
